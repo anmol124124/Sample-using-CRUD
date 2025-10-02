@@ -1,16 +1,49 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+const { Sequelize } = require('sequelize');
+const config = require('./database');
 
-const pool = new Pool({
-  host: process.env.PGHOST,
-  port: Number(process.env.PGPORT || 5432),
-  database: process.env.PGDATABASE,
-  user: process.env.PGUSER,
-  password: process.env.PGPASSWORD
-});
+const env = process.env.NODE_ENV || 'development';
+const dbConfig = config[env];
 
-async function query(text, params) {
-  return pool.query(text, params);
+const sequelize = new Sequelize(
+  dbConfig.database,
+  dbConfig.username,
+  dbConfig.password,
+  {
+    host: dbConfig.host,
+    port: dbConfig.port,
+    dialect: dbConfig.dialect,
+    logging: dbConfig.logging,
+    dialectOptions: dbConfig.dialectOptions || {}
+  }
+);
+
+// Test the database connection
+async function testConnection() {
+  try {
+    await sequelize.authenticate();
+    console.log('Database connection has been established successfully.');
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+    throw error;
+  }
 }
 
-module.exports = { pool, query };
+// Sync all models with the database
+async function syncModels(force = false) {
+  try {
+    await sequelize.sync({ force });
+    console.log('Database synchronized');
+  } catch (error) {
+    console.error('Error syncing database:', error);
+    throw error;
+  }
+}
+
+module.exports = {
+  sequelize,
+  Sequelize,
+  testConnection,
+  syncModels,
+  // For backward compatibility
+  query: (text, params) => sequelize.query(text, { replacements: params })
+};

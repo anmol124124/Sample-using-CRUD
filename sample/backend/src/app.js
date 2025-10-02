@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
-const { query } = require('./config/db');
+const { sequelize } = require('./config/db');
 const { redis } = require('./config/redis');
 const rateLimit = require('express-rate-limit');
 const authRoutes = require('./routes/authRoutes');
@@ -23,9 +23,10 @@ app.use(limiter);
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.get('/health/db', async (_req, res) => {
   try {
-    const { rows } = await query('SELECT 1 as ok');
-    res.json({ ok: true, db: rows[0].ok === 1 });
+    await sequelize.authenticate();
+    res.json({ ok: true, db: true });
   } catch (err) {
+    console.error('Database health check failed:', err);
     res.status(500).json({ ok: false, error: 'DB not reachable' });
   }
 });
@@ -34,6 +35,7 @@ app.get('/health/redis', async (_req, res) => {
     const pong = await redis.ping();
     res.json({ ok: pong === 'PONG' });
   } catch (err) {
+    console.error('Redis health check failed:', err);
     res.status(500).json({ ok: false, error: 'Redis not reachable' });
   }
 });
